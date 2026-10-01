@@ -1301,6 +1301,10 @@ void ControlAppearance(bool randomize)
     }
 }
 
+namespace {
+    bool TryGetMiraRoleTeam(RoleBehaviour* roleBehaviour, int& roleTeam);
+}
+
 NetworkedPlayerInfo_PlayerOutfit* GetPlayerOutfit(NetworkedPlayerInfo* player, bool includeShapeshifted /* = false */) {
     if (!player) return nullptr;
     const il2cpp::Dictionary dic(player->fields.Outfits);

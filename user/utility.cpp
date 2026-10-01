@@ -1314,8 +1314,12 @@ NetworkedPlayerInfo_PlayerOutfit* GetPlayerOutfit(NetworkedPlayerInfo* player, b
 }
 
 bool PlayerIsImpostor(NetworkedPlayerInfo* player) {
-    if (player->fields.Role == nullptr) return false;
-    
+    if (player == nullptr || player->fields.Role == nullptr) return false;
+
+    int miraTeam = -1;
+    if (TryGetMiraRoleTeam(player->fields.Role, miraTeam))
+        return miraTeam == 1; // MiraAPI::ModdedRoleTeams::Impostor
+
     return player->fields.Role->fields.TeamType == RoleTeamTypes__Enum::Impostor;
 }
 
@@ -1420,6 +1424,87 @@ Color GetColorFromImVec4(ImVec4 vec) {
     return Color(vec.x, vec.y, vec.z, vec.w);
 }
 
+namespace {
+    const MethodInfo* FindZeroArgMethod(Il2CppClass* klass, const char* methodName) {
+        for (Il2CppClass* current = klass; current != nullptr; current = il2cpp_class_get_parent(current)) {
+            if (const MethodInfo* method = il2cpp_class_get_method_from_name(current, methodName, 0))
+                return method;
+        }
+        return nullptr;
+    }
+
+    bool TryGetMiraRoleName(RoleBehaviour* roleBehaviour, std::string& roleName) {
+        if (roleBehaviour == nullptr)
+            return false;
+
+        Il2CppClass* klass = il2cpp_object_get_class(reinterpret_cast<Il2CppObject*>(roleBehaviour));
+        if (klass == nullptr)
+            return false;
+
+        const MethodInfo* getter = FindZeroArgMethod(klass, "get_RoleName");
+        if (getter == nullptr)
+            return false;
+
+        Il2CppException* exception = nullptr;
+        Il2CppObject* result = il2cpp_runtime_invoke(getter, roleBehaviour, nullptr, &exception);
+        if (exception != nullptr || result == nullptr)
+            return false;
+
+        roleName = convert_from_string(reinterpret_cast<app::String*>(result));
+        return !roleName.empty();
+    }
+
+    bool TryGetMiraRoleColor(RoleBehaviour* roleBehaviour, app::Color& roleColor) {
+        if (roleBehaviour == nullptr)
+            return false;
+
+        Il2CppClass* klass = il2cpp_object_get_class(reinterpret_cast<Il2CppObject*>(roleBehaviour));
+        if (klass == nullptr)
+            return false;
+
+        const MethodInfo* getter = FindZeroArgMethod(klass, "get_RoleColor");
+        if (getter == nullptr)
+            return false;
+
+        Il2CppException* exception = nullptr;
+        Il2CppObject* result = il2cpp_runtime_invoke(getter, roleBehaviour, nullptr, &exception);
+        if (exception != nullptr || result == nullptr)
+            return false;
+
+        void* unboxed = il2cpp_object_unbox(result);
+        if (unboxed == nullptr)
+            return false;
+
+        roleColor = *reinterpret_cast<app::Color*>(unboxed);
+        return true;
+    }
+
+    bool TryGetMiraRoleTeam(RoleBehaviour* roleBehaviour, int& roleTeam) {
+        if (roleBehaviour == nullptr)
+            return false;
+
+        Il2CppClass* klass = il2cpp_object_get_class(reinterpret_cast<Il2CppObject*>(roleBehaviour));
+        if (klass == nullptr)
+            return false;
+
+        const MethodInfo* getter = FindZeroArgMethod(klass, "get_Team");
+        if (getter == nullptr)
+            return false;
+
+        Il2CppException* exception = nullptr;
+        Il2CppObject* result = il2cpp_runtime_invoke(getter, roleBehaviour, nullptr, &exception);
+        if (exception != nullptr || result == nullptr)
+            return false;
+
+        void* unboxed = il2cpp_object_unbox(result);
+        if (unboxed == nullptr)
+            return false;
+
+        roleTeam = *reinterpret_cast<int*>(unboxed);
+        return roleTeam >= 0 && roleTeam <= 2;
+    }
+}
+
 // for some reason, the tracker's role ID is 55050 instead of 10
 
 Color GetRoleColor(RoleBehaviour* roleBehaviour, bool gui) {
@@ -1427,6 +1512,9 @@ Color GetRoleColor(RoleBehaviour* roleBehaviour, bool gui) {
         return State.LightMode && gui ? Palette__TypeInfo->static_fields->Black : Palette__TypeInfo->static_fields->White;
 
     app::Color c;
+    if (TryGetMiraRoleColor(roleBehaviour, c))
+        return c;
+
     switch (roleBehaviour->fields.Role) {
     case RoleTypes__Enum::CrewmateGhost: {
         c = GetColorFromImVec4(State.CrewmateGhostColor);
@@ -1500,6 +1588,13 @@ Color GetRoleColor(RoleBehaviour* roleBehaviour, bool gui) {
 std::string GetRoleName(RoleBehaviour* roleBehaviour, bool abbreviated /* = false */, bool localized /* = false */)
 {
     if (roleBehaviour == nullptr) return (abbreviated ? "Unk" : "Unknown");
+
+    std::string miraRoleName;
+    if (TryGetMiraRoleName(roleBehaviour, miraRoleName)) {
+        if (!abbreviated || miraRoleName.size() <= 3)
+            return miraRoleName;
+        return miraRoleName.substr(0, 3);
+    }
 
     const uint16_t trackerRoleId = 55050;
 

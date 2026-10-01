@@ -1,11 +1,12 @@
 name: Build Project
+# TOU-Mira compatibility branch build trigger
 
 on:
   workflow_dispatch:
   release:
     types: [published]
-  #push:
-    #branches: [ "main" ]
+  push:
+    branches: [ "tou-mira-compat" ]
   
 jobs:
   build:

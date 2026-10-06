@@ -302,3 +302,5 @@ replace_once(
 )
 
 print("Passive SickoMenu + MalumMenu detection patch applied successfully.")
+
+# Build trigger: passive detection pack

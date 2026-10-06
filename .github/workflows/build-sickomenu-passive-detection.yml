@@ -1,0 +1,73 @@
+name: Build SickoMenu Passive Detection Pack
+
+on:
+  push:
+    branches:
+      - build-sickomenu-passive-detection
+
+jobs:
+  build:
+    runs-on: windows-2025
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Release_x64
+            platform: x64
+            configuration: Release
+            output_path: x64\\Release
+          - name: Release_Itch_x86
+            platform: x86
+            configuration: Release
+            output_path: Release
+
+    steps:
+      - name: Checkout builder branch
+        uses: actions/checkout@v7
+
+      - name: Clone upstream SickoMenu
+        shell: pwsh
+        run: git clone --recursive https://github.com/g0aty/SickoMenu.git SickoMenu-src
+
+      - name: Apply passive Sicko and Malum detection
+        shell: pwsh
+        run: python scripts/patch_sickomenu_detection.py SickoMenu-src
+
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@v3
+
+      - name: Build SickoMenu.dll
+        working-directory: SickoMenu-src
+        shell: cmd
+        run: MSBuild.exe SickoMenu.sln -property:Configuration=${{ matrix.configuration }} -property:PlatformToolset=v143 -property:Platform=${{ matrix.platform }}
+
+      - name: Build version.dll
+        working-directory: SickoMenu-src
+        shell: cmd
+        run: MSBuild.exe SickoMenu.sln -property:Configuration=${{ matrix.configuration }}_Version -property:PlatformToolset=v143 -property:Platform=${{ matrix.platform }}
+
+      - name: Package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path package | Out-Null
+          Copy-Item "SickoMenu-src/${{ matrix.output_path }}/SickoMenu.dll" "package/SickoMenu.dll"
+          Copy-Item "SickoMenu-src/${{ matrix.output_path }}_Version/version.dll" "package/version.dll"
+          Copy-Item "SickoMenu-src/LICENSE" "package/LICENSE"
+          @"
+          SickoMenu passive detection build
+
+          Added:
+          - Hidden SickoMenu detection from SickoChat RPC 101.
+          - Existing RPC 420 confirmed SickoMenu detection is surfaced in Console > Cheat events.
+          - Probable MalumMenu v3.3.1 detection from its distinctive packed Pet-RPC overload signature.
+          - MalumMenu is included in the existing SMAC Known Cheat Usage category.
+
+          MalumMenu labeling is intentionally confidence-based because v3.3.1 does not broadcast a unique identification handshake.
+          "@ | Set-Content "package/README-DETECTION.txt"
+          Compress-Archive -Path package/* -DestinationPath "${{ matrix.name }}-PassiveDetection.zip"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.name }}-PassiveDetection
+          path: ${{ matrix.name }}-PassiveDetection.zip

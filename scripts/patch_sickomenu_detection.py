@@ -9,9 +9,12 @@ root = Path(sys.argv[1]).resolve()
 def replace_once(rel, old, new):
     path = root / rel
     text = path.read_text(encoding="utf-8")
-    if old not in text:
+    needle = old
+    if needle not in text and needle.endswith("\n") and needle[:-1] in text:
+        needle = needle[:-1]
+    if needle not in text:
         raise RuntimeError(f"Expected source block not found in {rel}")
-    text = text.replace(old, new, 1)
+    text = text.replace(needle, new, 1)
     path.write_text(text, encoding="utf-8")
     print(f"patched {rel}")
 
